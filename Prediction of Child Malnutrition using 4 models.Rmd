@@ -1,0 +1,285 @@
+---
+title: "Review 2 (Child Malnutrition)"
+author: "FDA_Project_Team_U"
+date: "2024-10-07"
+output: html_document
+---
+
+#REVIEW 2
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(e1071)
+library(randomForest)
+library(rpart)
+
+# Load the dataset
+data <- read.csv("D:\\SEM 7\\FDA - r prog\\jcomp\\Percentage-of-underweight-children-data-modified.csv")
+
+# 1. Data Exploration and Cleaning
+summary(data)
+
+
+# Handle missing values
+data <- data %>% filter(!is.na(Percentage.of.Underweight.Children))
+
+# Train-test split
+set.seed(123)
+train_index <- createDataPartition(data$Percentage.of.Underweight.Children, p = 0.8, list = FALSE)
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+
+missing_values <- sum(is.na(data$Percentage.of.Underweight.Children))
+cat("Number of missing values: ", missing_values, "\n")
+
+# Remove rows with missing values
+data_clean <- na.omit(data)
+
+# 2. Exploratory Data Analysis (EDA)
+# Summary statistics
+summary(data_clean$Percentage.of.Underweight.Children)
+
+# Distribution of underweight children percentages
+ggplot(data_clean, aes(x = Percentage.of.Underweight.Children)) +
+  geom_histogram(binwidth = 2, fill = "blue", alpha = 0.7) +
+  labs(title = "Distribution of Percentage of Underweight Children",
+       x = "Percentage of Underweight Children", y = "Count")
+
+# Boxplot to check regional differences
+ggplot(data_clean, aes(x = Continent, y = Percentage.of.Underweight.Children, fill = Continent)) +
+  geom_boxplot() +
+  labs(title = "Underweight Children Percentages by Continent",
+       x = "Continent", y = "Percentage of Underweight Children")
+
+
+```
+
+
+
+
+```{r}
+linear_model <- lm(Percentage.of.Underweight.Children ~ Year, data = train_data)
+# Summary of the linear model
+summary(linear_model)
+```
+
+```{r}
+#LINEAR REGRESSION
+
+# Check the structure of the Country.Name factor in both training and testing datasets
+train_data$Country.Name <- factor(train_data$Country.Name)
+test_data$Country.Name <- factor(test_data$Country.Name, levels = levels(train_data$Country.Name))
+
+# Split the data into training and testing sets
+set.seed(123)  # Setting seed for reproducibility
+split_index <- createDataPartition(data_clean$Percentage.of.Underweight.Children, p = 0.7, list = FALSE)
+train_data <- data_clean[split_index, ]
+test_data <- data_clean[-split_index, ]
+
+# Check for factor level differences
+new_levels <- setdiff(test_data$Country.Name, train_data$Country.Name)
+cat("New levels in test data:", new_levels, "\n")
+
+# Remove rows in test data with these new levels
+test_data_clean <- test_data[!(test_data$Country.Name %in% new_levels), ]
+
+# Make predictions on the cleaned test data
+predictions <- predict(linear_model, newdata = test_data_clean)
+
+# Evaluate model performance
+rmse <- sqrt(mean((test_data_clean$Percentage.of.Underweight.Children - predictions)^2))
+r_squared <- summary(linear_model)$r.squared
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+cat("R-squared:", r_squared, "\n")
+```
+
+```{r}
+#SVM
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_indices <- sample(1:nrow(data_clean), 0.7 * nrow(data_clean))  # 70% training data
+train_data <- data_clean[train_indices, ]
+test_data <- data_clean[-train_indices, ]
+
+# Train the SVM model
+svm_model <- svm(Percentage.of.Underweight.Children ~ ., data = train_data)
+
+# Make predictions on the test data
+predictions <- predict(svm_model, newdata = test_data_clean)
+
+# Evaluate the model
+actual_values <- test_data$Percentage.of.Underweight.Children
+
+# Calculate RMSE
+rmse <- sqrt(mean((predictions - actual_values)^2))
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+# R-squared calculation
+r_squared <- 1 - sum((predictions - actual_values)^2) / sum((mean(actual_values) - actual_values)^2)
+cat("R-squared:", r_squared, "\n")
+
+
+```
+
+```{r}
+#RANDOM FOREST
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_indices <- sample(1:nrow(data_clean), 0.7 * nrow(data_clean))  # 70% training data
+train_data <- data_clean[train_indices, ]
+test_data <- data_clean[-train_indices, ]
+
+# Train the Random Forest model
+rf_model <- randomForest(Percentage.of.Underweight.Children ~ ., data = train_data)
+
+# Make predictions on the test data
+predictions <- predict(rf_model, newdata = test_data_clean)
+
+# Evaluate the model
+actual_values <- test_data$Percentage.of.Underweight.Children
+
+# Calculate RMSE
+rmse <- sqrt(mean((predictions - actual_values)^2))
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+# R-squared calculation
+r_squared <- 1 - sum((predictions - actual_values)^2) / sum((mean(actual_values) - actual_values)^2)
+cat("R-squared:", r_squared, "\n")
+```
+
+```{r}
+#DECISION TREE
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+train_indices <- sample(1:nrow(data_clean), 0.7 * nrow(data_clean))  # 70% training data
+train_data <- data_clean[train_indices, ]
+test_data <- data_clean[-train_indices, ]
+
+# Train the Decision Tree model
+tree_model <- rpart(Percentage.of.Underweight.Children ~ ., data = train_data, method = "anova")
+
+# Make predictions on the test data
+predictions <- predict(tree_model, newdata = test_data_clean)
+
+# Evaluate the model
+actual_values <- test_data$Percentage.of.Underweight.Children
+
+# Calculate RMSE
+rmse <- sqrt(mean((predictions - actual_values)^2))
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+# R-squared calculation
+r_squared <- 1 - sum((predictions - actual_values)^2) / sum((mean(actual_values) - actual_values)^2)
+cat("R-squared:", r_squared, "\n")
+
+```
+
+#REVIEW 3
+```{r}
+
+# Load necessary libraries
+library(caret)
+library(e1071)
+library(rpart)
+library(randomForest)
+
+# Load the dataset
+data <- read.csv("D:\\SEM 7\\FDA - r prog\\jcomp\\Percentage-of-underweight-children-data-modified.csv")
+
+# Handle missing values (you may choose different imputation techniques as needed)
+data <- na.omit(data)  # Remove rows with missing values
+
+# Convert categorical variables to factors
+data$Country.Name <- as.factor(data$Country.Name)
+data$Continent <- as.factor(data$Continent)
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+splitIndex <- createDataPartition(data$Percentage.of.Underweight.Children, p = 0.8, list = FALSE)
+trainData <- data[splitIndex, ]
+testData <- data[-splitIndex, ]
+
+# Define the target variable and predictors
+target <- "Percentage.of.Underweight.Children"
+predictors <- c("Country.Name", "Continent", "Year")  # Using all available features
+
+# 1. Linear Regression Model
+linear_model <- lm(as.formula(paste(target, "~", paste(predictors, collapse = "+"))), data = trainData)
+linear_predictions <- predict(linear_model, newdata = testData)
+linear_r_squared <- summary(linear_model)$adj.r.squared
+print(paste("Adjusted R-squared for Linear Regression:", linear_r_squared))
+
+# 2. Support Vector Machine (SVM) Model
+svm_model <- svm(as.formula(paste(target, "~", paste(predictors, collapse = "+"))), data = trainData)
+svm_predictions <- predict(svm_model, newdata = testData)
+svm_r_squared <- cor(testData[[target]], svm_predictions)^2
+print(paste("R-squared for SVM:", svm_r_squared))
+
+# 3. Decision Tree Model
+tree_model <- rpart(as.formula(paste(target, "~", paste(predictors, collapse = "+"))), data = trainData)
+tree_predictions <- predict(tree_model, newdata = testData)
+tree_r_squared <- cor(testData[[target]], tree_predictions)^2
+print(paste("R-squared for Decision Tree:", tree_r_squared))
+
+# 4. Random Forest Model
+predictors <- c("Continent", "Year")
+rf_model <- randomForest(as.formula(paste(target, "~", paste(predictors, collapse = "+"))), data = trainData)
+rf_predictions <- predict(rf_model, newdata = testData)
+rf_r_squared <- cor(testData[[target]], rf_predictions)^2
+print(paste("R-squared for Random Forest:", rf_r_squared))
+```
+
+
+```{r}
+# Load necessary libraries
+library(forecast)
+library(tseries)
+
+# Load your data
+dataset <- read.csv("D:\\SEM 7\\FDA - r prog\\jcomp\\Percentage-of-underweight-children-data-modified.csv")
+
+# Ensure the column is numeric and handle missing values
+dataset$Percentage.of.Underweight.Children <- as.numeric(dataset$Percentage.of.Underweight.Children)
+dataset <- na.omit(dataset)  # Remove rows with missing values
+
+# Convert the 'Percentage.of.Underweight.Children' column to a time series
+start_year <- min(dataset$Year)
+end_year <- max(dataset$Year)
+ts_data <- ts(dataset$Percentage.of.Underweight.Children, 
+              start = start_year, 
+              frequency = 1)
+
+# Check the range of the data to set y-axis limits
+y_min <- min(ts_data, na.rm = TRUE)
+y_max <- max(ts_data, na.rm = TRUE)
+
+# Fit the ARIMA model
+arima_model <- auto.arima(ts_data)
+
+# Generate forecasts
+forecast_horizon <- 2030 - end_year  # Forecast until 2030
+forecast_data <- forecast(arima_model, h = forecast_horizon)
+
+# Update y-axis limits to include forecasted values
+y_min <- min(y_min, min(forecast_data$lower, na.rm = TRUE))
+y_max <- max(y_max, max(forecast_data$upper, na.rm = TRUE))
+
+# Plot the forecast without default axis labels
+plot(forecast_data, main = "ARIMA Forecast of Underweight Children Percentage",
+     xlab = "Year", ylab = "Percentage of Underweight Children", 
+     xlim = c(2010, 2030), ylim = c(y_min, y_max), 
+     col = "blue", lwd = 2, xaxt = "n")  # Suppress default x-axis
+
+# Add a vertical line to indicate the separation between historical and forecasted data
+abline(v = end_year, col = "red", lty = 2)
+
+# Add custom x-axis labels starting from 2010
+axis(1, at = seq(2010, 2030, by = 2), labels = seq(2010, 2030, by = 2))
+
+
+```
+
